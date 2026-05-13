@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               href="/dashboard"
               className="text-sm text-slate-400 hover:text-orange-400 transition-colors"
             >
-              Dashboard
+              Histórico
             </a>
           </div>
         </header>

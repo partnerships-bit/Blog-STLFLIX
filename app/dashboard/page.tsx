@@ -27,8 +27,8 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-slate-400 text-sm mt-1">Histórico dos últimos 10 artigos gerados</p>
+          <h1 className="text-2xl font-bold text-white">Histórico</h1>
+          <p className="text-slate-400 text-sm mt-1">Clique no título para reabrir e copiar o artigo</p>
         </div>
         <Link
           href="/"

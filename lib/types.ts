@@ -46,6 +46,7 @@ export interface ArticleResult {
 
 export interface DashboardEntry {
   id: string;
+  article_id: string | null;
   source_url: string;
   title: string | null;
   word_count: number | null;

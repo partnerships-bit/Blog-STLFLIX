@@ -7,6 +7,7 @@ export async function GET() {
       .from('generation_logs')
       .select(`
         id,
+        article_id,
         source_url,
         generation_time_seconds,
         word_count,
@@ -17,7 +18,7 @@ export async function GET() {
         )
       `)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(100);
 
     if (error) throw new Error(error.message);
 
@@ -36,6 +37,7 @@ export async function GET() {
 
     const entries = (logs ?? []).map((log: Record<string, unknown>) => ({
       id: log.id,
+      article_id: log.article_id ?? null,
       source_url: log.source_url,
       title: (log.articles as Record<string, unknown> | null)?.title ?? null,
       word_count: log.word_count,

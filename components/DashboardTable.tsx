@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { DashboardEntry } from '@/lib/types';
 
 interface DashboardTableProps {
@@ -58,49 +59,92 @@ export function DashboardTable({ entries, weekCount }: DashboardTableProps) {
                 <th className="px-4 py-3 text-right">Palavras</th>
                 <th className="px-4 py-3 text-right">Tempo</th>
                 <th className="px-4 py-3 text-center">Status</th>
+                <th className="px-4 py-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry, i) => (
-                <tr
-                  key={entry.id}
-                  className={`border-t border-slate-800 ${i % 2 === 0 ? 'bg-slate-900/50' : 'bg-slate-900'}`}
-                >
-                  <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
-                    {formatDate(entry.created_at)}
-                  </td>
-                  <td className="px-4 py-3 max-w-xs">
-                    {entry.title ? (
-                      <div>
-                        <p className="text-white font-medium truncate">{entry.title}</p>
-                        <p className="text-slate-500 text-xs truncate">{truncateUrl(entry.source_url)}</p>
-                      </div>
-                    ) : (
-                      <p className="text-slate-500 truncate">{truncateUrl(entry.source_url)}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-300">
-                    {entry.word_count ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right text-slate-300 whitespace-nowrap">
-                    {entry.generation_time_seconds
-                      ? `${Math.round(entry.generation_time_seconds)}s`
-                      : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span
-                      className={`
-                        inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium
-                        ${entry.status === 'sucesso'
-                          ? 'bg-green-500/15 text-green-400'
-                          : 'bg-red-500/15 text-red-400'}
-                      `}
-                    >
-                      {entry.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {entries.map((entry, i) => {
+                const canOpen = entry.status === 'sucesso' && entry.article_id;
+                return (
+                  <tr
+                    key={entry.id}
+                    className={`
+                      border-t border-slate-800 transition-colors
+                      ${i % 2 === 0 ? 'bg-slate-900/50' : 'bg-slate-900'}
+                      ${canOpen ? 'hover:bg-slate-800/80' : ''}
+                    `}
+                  >
+                    <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
+                      {formatDate(entry.created_at)}
+                    </td>
+                    <td className="px-4 py-3 max-w-xs">
+                      {entry.title ? (
+                        <div>
+                          {canOpen ? (
+                            <Link
+                              href={`/articles/${entry.article_id}`}
+                              className="text-white font-medium hover:text-orange-300 transition-colors truncate block"
+                            >
+                              {entry.title}
+                            </Link>
+                          ) : (
+                            <p className="text-white font-medium truncate">{entry.title}</p>
+                          )}
+                          <p className="text-slate-500 text-xs truncate">{truncateUrl(entry.source_url)}</p>
+                        </div>
+                      ) : (
+                        <p className="text-slate-500 truncate">{truncateUrl(entry.source_url)}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-300">
+                      {entry.word_count ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-300 whitespace-nowrap">
+                      {entry.generation_time_seconds
+                        ? `${Math.round(entry.generation_time_seconds)}s`
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className={`
+                          inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium
+                          ${entry.status === 'sucesso'
+                            ? 'bg-green-500/15 text-green-400'
+                            : 'bg-red-500/15 text-red-400'}
+                        `}
+                      >
+                        {entry.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      {canOpen ? (
+                        <div className="flex gap-2 justify-end">
+                          <Link
+                            href={`/articles/${entry.article_id}`}
+                            className="
+                              inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium
+                              bg-slate-700/60 text-slate-200 hover:bg-slate-700 transition-colors
+                            "
+                          >
+                            Editar
+                          </Link>
+                          <Link
+                            href={`/articles/${entry.article_id}/preview`}
+                            className="
+                              inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium
+                              bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 transition-colors
+                            "
+                          >
+                            Ver HTML
+                          </Link>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
