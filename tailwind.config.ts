@@ -10,8 +10,16 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          orange: "#F97316",
+          blue: "#5166e6",
           dark: "#0A0F1E",
+        },
+        // Sobrescreve a paleta "orange" do Tailwind para tons da brand-blue
+        // — assim as classes orange-300/400/500 existentes renderizam azul
+        // sem precisar reescrever todos os componentes.
+        orange: {
+          300: "#98A2EE",
+          400: "#7884E9",
+          500: "#5166e6",
         },
       },
     },

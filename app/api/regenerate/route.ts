@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { generateArticle } from '@/lib/anthropic';
-import type { ArticleResult } from '@/lib/types';
+import { persistArticle } from '@/lib/articles';
 
 export const maxDuration = 120;
 
@@ -26,47 +26,24 @@ export async function POST(request: NextRequest) {
     }
 
     const generated = await generateArticle(transcription.content);
+    const articleSourceUrl = source_url ?? transcription.source_url;
 
-    const { data: articleData, error: articleError } = await supabase
-      .from('articles')
-      .insert({
-        transcription_id,
-        title: generated.title,
-        meta_description: generated.metaDescription,
-        body_md: generated.bodyMd,
-        body_html: generated.bodyHtml,
-        keywords: generated.keywords,
-        word_count: generated.wordCount,
-      })
-      .select()
-      .single();
-
-    if (articleError || !articleData) {
-      throw new Error(`Erro ao salvar artigo: ${articleError?.message}`);
-    }
+    const article = await persistArticle({
+      generated,
+      transcriptionId: transcription_id,
+      sourceUrl: articleSourceUrl,
+    });
 
     const generationTime = (Date.now() - startTime) / 1000;
 
     await supabase.from('generation_logs').insert({
-      source_url: source_url ?? transcription.source_url,
+      source_url: articleSourceUrl,
       video_duration_seconds: transcription.duration_seconds,
       generation_time_seconds: generationTime,
       word_count: generated.wordCount,
       status: 'sucesso',
-      article_id: articleData.id,
+      article_id: article.id,
     });
-
-    const article: ArticleResult = {
-      id: articleData.id,
-      transcription_id,
-      title: generated.title,
-      metaDescription: generated.metaDescription,
-      bodyMd: generated.bodyMd,
-      bodyHtml: generated.bodyHtml,
-      keywords: generated.keywords,
-      wordCount: generated.wordCount,
-      sourceUrl: source_url ?? transcription.source_url,
-    };
 
     return NextResponse.json({ article });
   } catch (err) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import type { ArticleResult } from '@/lib/types';
+import type { ArticleResult, FAQItem, HowToStep } from '@/lib/types';
 
 export async function GET(
   _req: Request,
@@ -18,6 +18,17 @@ export async function GET(
         body_html,
         keywords,
         word_count,
+        title_variants,
+        meta_variants,
+        slug,
+        primary_keyword,
+        tldr,
+        faq,
+        json_ld,
+        is_tutorial,
+        howto_steps,
+        og_image_alt,
+        reading_time_minutes,
         transcriptions (
           source_url
         )
@@ -31,6 +42,7 @@ export async function GET(
     }
 
     const transcription = data.transcriptions as { source_url?: string } | null;
+    const sourceUrl = transcription?.source_url ?? '';
 
     const article: ArticleResult = {
       id: data.id,
@@ -41,7 +53,19 @@ export async function GET(
       bodyHtml: data.body_html,
       keywords: data.keywords ?? [],
       wordCount: data.word_count ?? 0,
-      sourceUrl: transcription?.source_url ?? '',
+      sourceUrl,
+      titleVariants: (data.title_variants as string[]) ?? [],
+      metaVariants: (data.meta_variants as string[]) ?? [],
+      slug: data.slug ?? '',
+      primaryKeyword: data.primary_keyword ?? '',
+      tldr: (data.tldr as string[]) ?? [],
+      faq: (data.faq as FAQItem[]) ?? [],
+      isTutorial: data.is_tutorial ?? false,
+      howtoSteps: (data.howto_steps as HowToStep[] | null) ?? null,
+      ogImageAlt: data.og_image_alt ?? '',
+      readingTimeMinutes:
+        data.reading_time_minutes ?? Math.max(1, Math.ceil((data.word_count ?? 0) / 200)),
+      jsonLd: (data.json_ld as Record<string, unknown>) ?? {},
     };
 
     return NextResponse.json(article);

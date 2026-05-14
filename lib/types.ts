@@ -8,6 +8,16 @@ export interface Transcription {
   created_at: string;
 }
 
+export interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+export interface HowToStep {
+  name: string;
+  text: string;
+}
+
 export interface Article {
   id: string;
   transcription_id: string;
@@ -18,6 +28,19 @@ export interface Article {
   keywords: string[];
   word_count: number;
   generated_at: string;
+
+  // SEO/GEO (migration 0002)
+  title_variants: string[];
+  meta_variants: string[];
+  slug: string | null;
+  primary_keyword: string | null;
+  tldr: string[];
+  faq: FAQItem[];
+  json_ld: Record<string, unknown>;
+  is_tutorial: boolean;
+  howto_steps: HowToStep[] | null;
+  og_image_alt: string | null;
+  reading_time_minutes: number | null;
 }
 
 export interface GenerationLog {
@@ -42,6 +65,19 @@ export interface ArticleResult {
   keywords: string[];
   wordCount: number;
   sourceUrl: string;
+
+  // SEO/GEO
+  titleVariants: string[];
+  metaVariants: string[];
+  slug: string;
+  primaryKeyword: string;
+  tldr: string[];
+  faq: FAQItem[];
+  isTutorial: boolean;
+  howtoSteps: HowToStep[] | null;
+  ogImageAlt: string;
+  readingTimeMinutes: number;
+  jsonLd: Record<string, unknown>;
 }
 
 export interface DashboardEntry {

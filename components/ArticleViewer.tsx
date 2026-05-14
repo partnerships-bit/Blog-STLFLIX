@@ -16,21 +16,12 @@ export function ArticleViewer({ initialArticle }: ArticleViewerProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div>
         <Link
           href="/dashboard"
           className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
         >
           ← Voltar ao histórico
-        </Link>
-        <Link
-          href={`/articles/${article.id}/preview`}
-          className="
-            text-sm px-3 py-1.5 rounded-lg border border-orange-500/40
-            text-orange-300 hover:bg-orange-500/10 transition-colors
-          "
-        >
-          Visualizar HTML →
         </Link>
       </div>
 

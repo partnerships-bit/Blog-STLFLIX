@@ -3,8 +3,9 @@ import { extractVideoId, isValidYouTubeUrl, toCanonicalUrl } from '@/lib/youtube
 import { getCachedTranscription, saveTranscription } from '@/lib/cache';
 import { transcribeYouTube } from '@/lib/assemblyai';
 import { generateArticle } from '@/lib/anthropic';
+import { persistArticle } from '@/lib/articles';
 import { supabase } from '@/lib/supabase';
-import type { ArticleResult, GenerateSSEEvent } from '@/lib/types';
+import type { GenerateSSEEvent } from '@/lib/types';
 
 export const maxDuration = 300;
 
@@ -63,23 +64,11 @@ export async function POST(request: NextRequest) {
 
         const generated = await generateArticle(transcription.content);
 
-        const { data: articleData, error: articleError } = await supabase
-          .from('articles')
-          .insert({
-            transcription_id: transcription.id,
-            title: generated.title,
-            meta_description: generated.metaDescription,
-            body_md: generated.bodyMd,
-            body_html: generated.bodyHtml,
-            keywords: generated.keywords,
-            word_count: generated.wordCount,
-          })
-          .select()
-          .single();
-
-        if (articleError || !articleData) {
-          throw new Error(`Erro ao salvar artigo: ${articleError?.message}`);
-        }
+        const article = await persistArticle({
+          generated,
+          transcriptionId: transcription.id,
+          sourceUrl: canonicalUrl,
+        });
 
         const generationTime = (Date.now() - startTime) / 1000;
 
@@ -89,20 +78,8 @@ export async function POST(request: NextRequest) {
           generation_time_seconds: generationTime,
           word_count: generated.wordCount,
           status: 'sucesso',
-          article_id: articleData.id,
+          article_id: article.id,
         });
-
-        const article: ArticleResult = {
-          id: articleData.id,
-          transcription_id: transcription.id,
-          title: generated.title,
-          metaDescription: generated.metaDescription,
-          bodyMd: generated.bodyMd,
-          bodyHtml: generated.bodyHtml,
-          keywords: generated.keywords,
-          wordCount: generated.wordCount,
-          sourceUrl,
-        };
 
         send({ stage: 'done', progress: 100, article });
       } catch (err) {

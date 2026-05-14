@@ -2,15 +2,25 @@
 
 import { useState } from 'react';
 import { marked } from 'marked';
+import type { FAQItem } from '@/lib/types';
 
 interface CopyButtonsProps {
   title: string;
   metaDescription: string;
   bodyMd: string;
   keywords: string[];
+  tldr: string[];
+  faq: FAQItem[];
 }
 
-export function CopyButtons({ title, metaDescription, bodyMd, keywords }: CopyButtonsProps) {
+export function CopyButtons({
+  title,
+  metaDescription,
+  bodyMd,
+  keywords,
+  tldr,
+  faq,
+}: CopyButtonsProps) {
   const [copied, setCopied] = useState<'md' | 'html' | null>(null);
 
   async function copyToClipboard(text: string, type: 'md' | 'html') {
@@ -19,27 +29,58 @@ export function CopyButtons({ title, metaDescription, bodyMd, keywords }: CopyBu
     setTimeout(() => setCopied(null), 2500);
   }
 
-  function buildMarkdown() {
-    return [
-      `# ${title}`,
-      '',
-      `> ${metaDescription}`,
-      '',
-      bodyMd,
-      '',
-      '---',
-      `**Palavras-chave:** ${keywords.join(', ')}`,
-    ].join('\n');
+  function buildMarkdown(): string {
+    const parts: string[] = [`# ${title}`, '', `> ${metaDescription}`];
+
+    if (tldr.length > 0) {
+      parts.push('', '## TL;DR', '');
+      for (const bullet of tldr) {
+        parts.push(`- ${bullet}`);
+      }
+    }
+
+    parts.push('', bodyMd);
+
+    const cleanFaq = faq.filter((f) => f.question.trim() && f.answer.trim());
+    if (cleanFaq.length > 0) {
+      parts.push('', '## FAQ', '');
+      for (const item of cleanFaq) {
+        parts.push(`### ${item.question.trim()}`, '', item.answer.trim(), '');
+      }
+    }
+
+    parts.push('---', `**Palavras-chave:** ${keywords.join(', ')}`);
+    return parts.join('\n');
   }
 
-  function buildHtml() {
-    const bodyHtml = String(marked.parse(bodyMd));
-    return [
-      `<h1>${title}</h1>`,
-      `<p><em>${metaDescription}</em></p>`,
-      bodyHtml,
-      `<p><strong>Palavras-chave:</strong> ${keywords.join(', ')}</p>`,
-    ].join('\n');
+  function buildHtml(): string {
+    const out: string[] = [
+      `<h1>${escapeHtml(title)}</h1>`,
+      `<p><em>${escapeHtml(metaDescription)}</em></p>`,
+    ];
+
+    if (tldr.length > 0) {
+      out.push('<h2>TL;DR</h2>');
+      out.push('<ul>');
+      for (const bullet of tldr) {
+        out.push(`  <li>${escapeHtml(bullet)}</li>`);
+      }
+      out.push('</ul>');
+    }
+
+    out.push(String(marked.parse(bodyMd)));
+
+    const cleanFaq = faq.filter((f) => f.question.trim() && f.answer.trim());
+    if (cleanFaq.length > 0) {
+      out.push('<h2>FAQ</h2>');
+      for (const item of cleanFaq) {
+        out.push(`<h3>${escapeHtml(item.question.trim())}</h3>`);
+        out.push(`<p>${escapeHtml(item.answer.trim())}</p>`);
+      }
+    }
+
+    out.push(`<p><strong>Palavras-chave:</strong> ${escapeHtml(keywords.join(', '))}</p>`);
+    return out.join('\n');
   }
 
   return (
@@ -81,4 +122,13 @@ export function CopyButtons({ title, metaDescription, bodyMd, keywords }: CopyBu
       </button>
     </div>
   );
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

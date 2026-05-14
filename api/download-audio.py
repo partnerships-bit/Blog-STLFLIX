@@ -18,6 +18,7 @@ import yt_dlp
 
 ASSEMBLYAI_API_KEY = os.environ.get("ASSEMBLYAI_API_KEY")
 ASSEMBLYAI_UPLOAD_URL = "https://api.assemblyai.com/v2/upload"
+YOUTUBE_PROXY_URL = os.environ.get("YOUTUBE_PROXY_URL")
 
 
 def download_and_upload(youtube_url: str) -> dict:
@@ -34,6 +35,8 @@ def download_and_upload(youtube_url: str) -> dict:
             "youtube": {"player_client": ["default", "android_vr"]}
         },
     }
+    if YOUTUBE_PROXY_URL:
+        ydl_opts["proxy"] = YOUTUBE_PROXY_URL
 
     downloaded_path = None
     try:

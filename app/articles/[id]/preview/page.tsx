@@ -71,7 +71,7 @@ export default async function ArticlePreviewPage({ params }: { params: { id: str
 
       <div
         className="
-          prose prose-invert prose-orange max-w-none
+          prose prose-invert prose-blue max-w-none
           prose-headings:text-white prose-h2:mt-10 prose-h2:mb-4
           prose-p:text-slate-200 prose-p:leading-relaxed
           prose-strong:text-white prose-a:text-orange-400 hover:prose-a:text-orange-300
