@@ -4,8 +4,9 @@ import { spawn } from 'child_process';
 const client = new AssemblyAI({ apiKey: process.env.ASSEMBLYAI_API_KEY! });
 
 const YT_DLP_BIN = process.env.YT_DLP_PATH || '/Users/karol/Library/Python/3.9/bin/yt-dlp';
+const IS_VERCEL = process.env.VERCEL === '1';
 
-async function downloadAudio(youtubeUrl: string): Promise<Buffer> {
+async function downloadAudioLocal(youtubeUrl: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const proc = spawn(YT_DLP_BIN, [
       '-f', 'bestaudio[ext=m4a]/bestaudio/best',
@@ -33,6 +34,32 @@ async function downloadAudio(youtubeUrl: string): Promise<Buffer> {
   });
 }
 
+async function getAssemblyAIUploadUrl(youtubeUrl: string): Promise<string> {
+  if (IS_VERCEL) {
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : '';
+    const res = await fetch(`${baseUrl}/api/download-audio`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: youtubeUrl }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`download-audio falhou (${res.status}): ${text}`);
+    }
+    const data = (await res.json()) as { upload_url?: string; error?: string };
+    if (!data.upload_url) {
+      throw new Error(data.error || 'download-audio não retornou upload_url');
+    }
+    return data.upload_url;
+  }
+
+  const audioBuffer = await downloadAudioLocal(youtubeUrl);
+  return client.files.upload(audioBuffer);
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function classifyError(msg: string): string {
@@ -57,9 +84,7 @@ export async function transcribeYouTube(
   onProgress: (progress: number) => void
 ): Promise<{ text: string; durationSeconds: number | null }> {
   onProgress(8);
-  const audioBuffer = await downloadAudio(youtubeUrl);
-  onProgress(15);
-  const uploadUrl = await client.files.upload(audioBuffer);
+  const uploadUrl = await getAssemblyAIUploadUrl(youtubeUrl);
   onProgress(20);
 
   const submitted = await client.transcripts.submit({
