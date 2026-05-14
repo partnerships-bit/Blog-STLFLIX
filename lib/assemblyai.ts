@@ -36,10 +36,14 @@ async function downloadAudioLocal(youtubeUrl: string): Promise<Buffer> {
 
 async function getAssemblyAIUploadUrl(youtubeUrl: string): Promise<string> {
   if (IS_VERCEL) {
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : '';
-    const res = await fetch(`${baseUrl}/api/download-audio`, {
+    const host =
+      process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+      process.env.VERCEL_URL;
+    if (!host) {
+      throw new Error('VERCEL_PROJECT_PRODUCTION_URL não disponível');
+    }
+
+    const res = await fetch(`https://${host}/api/download-audio`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: youtubeUrl }),
@@ -47,7 +51,8 @@ async function getAssemblyAIUploadUrl(youtubeUrl: string): Promise<string> {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`download-audio falhou (${res.status}): ${text}`);
+      const snippet = text.length > 300 ? text.slice(0, 300) + '...' : text;
+      throw new Error(`download-audio falhou (${res.status}): ${snippet}`);
     }
     const data = (await res.json()) as { upload_url?: string; error?: string };
     if (!data.upload_url) {
