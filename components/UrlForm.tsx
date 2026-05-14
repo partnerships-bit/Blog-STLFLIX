@@ -67,6 +67,10 @@ export function UrlForm({ onSubmit, disabled, initialUrl = '' }: UrlFormProps) {
             Gerar artigo
           </button>
         </div>
+        <p className="text-xs text-slate-500">
+          Geramos automaticamente <strong className="text-slate-300">duas versões</strong> — uma em
+          português (Brasil) e outra em inglês (global). Use as abas no artigo para alternar.
+        </p>
         {error && (
           <p className="text-sm text-red-400">{error}</p>
         )}

@@ -1,18 +1,20 @@
 import { supabase } from './supabase';
 import { buildJsonLd } from './jsonld';
 import type { GeneratedArticle } from './anthropic';
-import type { ArticleResult } from './types';
+import type { ArticleResult, Language } from './types';
 
 interface PersistArticleParams {
   generated: GeneratedArticle;
   transcriptionId: string;
   sourceUrl: string;
+  language: Language;
 }
 
 export async function persistArticle({
   generated,
   transcriptionId,
   sourceUrl,
+  language,
 }: PersistArticleParams): Promise<ArticleResult> {
   const readingTimeMinutes = Math.max(1, Math.ceil(generated.wordCount / 200));
 
@@ -26,6 +28,7 @@ export async function persistArticle({
     faq: generated.faq,
     isTutorial: generated.isTutorial,
     howtoSteps: generated.howtoSteps,
+    language,
   });
 
   const { data, error } = await supabase
@@ -49,6 +52,7 @@ export async function persistArticle({
       howto_steps: generated.howtoSteps,
       og_image_alt: generated.ogImageAlt || null,
       reading_time_minutes: readingTimeMinutes,
+      language,
     })
     .select()
     .single();
@@ -78,5 +82,6 @@ export async function persistArticle({
     ogImageAlt: generated.ogImageAlt,
     readingTimeMinutes,
     jsonLd,
+    language,
   };
 }

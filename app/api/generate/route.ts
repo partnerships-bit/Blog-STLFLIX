@@ -5,7 +5,7 @@ import { transcribeYouTube } from '@/lib/assemblyai';
 import { generateArticle } from '@/lib/anthropic';
 import { persistArticle } from '@/lib/articles';
 import { supabase } from '@/lib/supabase';
-import type { GenerateSSEEvent } from '@/lib/types';
+import type { ArticleBundle, GenerateSSEEvent } from '@/lib/types';
 
 export const maxDuration = 300;
 
@@ -62,26 +62,49 @@ export async function POST(request: NextRequest) {
 
         send({ stage: 'generating', progress: 70 });
 
-        const generated = await generateArticle(transcription.content);
+        const [generatedPt, generatedEn] = await Promise.all([
+          generateArticle(transcription.content, 'pt-BR'),
+          generateArticle(transcription.content, 'en'),
+        ]);
 
-        const article = await persistArticle({
-          generated,
-          transcriptionId: transcription.id,
-          sourceUrl: canonicalUrl,
-        });
+        const [articlePt, articleEn] = await Promise.all([
+          persistArticle({
+            generated: generatedPt,
+            transcriptionId: transcription.id,
+            sourceUrl: canonicalUrl,
+            language: 'pt-BR',
+          }),
+          persistArticle({
+            generated: generatedEn,
+            transcriptionId: transcription.id,
+            sourceUrl: canonicalUrl,
+            language: 'en',
+          }),
+        ]);
 
         const generationTime = (Date.now() - startTime) / 1000;
 
-        await supabase.from('generation_logs').insert({
-          source_url: sourceUrl,
-          video_duration_seconds: durationSeconds,
-          generation_time_seconds: generationTime,
-          word_count: generated.wordCount,
-          status: 'sucesso',
-          article_id: article.id,
-        });
+        await supabase.from('generation_logs').insert([
+          {
+            source_url: sourceUrl,
+            video_duration_seconds: durationSeconds,
+            generation_time_seconds: generationTime,
+            word_count: generatedPt.wordCount,
+            status: 'sucesso',
+            article_id: articlePt.id,
+          },
+          {
+            source_url: sourceUrl,
+            video_duration_seconds: durationSeconds,
+            generation_time_seconds: generationTime,
+            word_count: generatedEn.wordCount,
+            status: 'sucesso',
+            article_id: articleEn.id,
+          },
+        ]);
 
-        send({ stage: 'done', progress: 100, article });
+        const bundle: ArticleBundle = { 'pt-BR': articlePt, en: articleEn };
+        send({ stage: 'done', progress: 100, articles: bundle });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro desconhecido';
 

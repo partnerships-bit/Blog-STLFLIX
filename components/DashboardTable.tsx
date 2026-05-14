@@ -56,6 +56,7 @@ export function DashboardTable({ entries, weekCount }: DashboardTableProps) {
               <tr className="text-left text-xs text-slate-400 uppercase tracking-wide bg-slate-900">
                 <th className="px-4 py-3">Data</th>
                 <th className="px-4 py-3">Título / URL</th>
+                <th className="px-4 py-3 text-center">Idioma</th>
                 <th className="px-4 py-3 text-right">Palavras</th>
                 <th className="px-4 py-3 text-right">Tempo</th>
                 <th className="px-4 py-3 text-center">Status</th>
@@ -94,6 +95,22 @@ export function DashboardTable({ entries, weekCount }: DashboardTableProps) {
                         </div>
                       ) : (
                         <p className="text-slate-500 truncate">{truncateUrl(entry.source_url)}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {entry.language ? (
+                        <span
+                          className={`
+                            inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wide
+                            ${entry.language === 'en'
+                              ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                              : 'bg-green-500/15 text-green-300 border border-green-500/30'}
+                          `}
+                        >
+                          {entry.language === 'en' ? 'EN' : 'PT-BR'}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right text-slate-300">

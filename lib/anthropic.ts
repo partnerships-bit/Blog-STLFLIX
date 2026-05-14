@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { marked } from 'marked';
-import { STLFLIX_SYSTEM_PROMPT, buildUserPrompt, SUBMIT_ARTICLE_TOOL } from './prompts';
-import type { FAQItem, HowToStep } from './types';
+import { getSystemPrompt, buildUserPrompt, getSubmitArticleTool } from './prompts';
+import type { FAQItem, HowToStep, Language } from './types';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -76,16 +76,21 @@ function asHowToSteps(v: unknown): HowToStep[] | null {
   return steps.length > 0 ? steps : null;
 }
 
-export async function generateArticle(transcriptionText: string): Promise<GeneratedArticle> {
+export async function generateArticle(
+  transcriptionText: string,
+  language: Language,
+): Promise<GeneratedArticle> {
+  const submitTool = getSubmitArticleTool(language);
+
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 8192,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    system: [{ type: 'text', text: STLFLIX_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }] as any,
+    system: [{ type: 'text', text: getSystemPrompt(language), cache_control: { type: 'ephemeral' } }] as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tools: [SUBMIT_ARTICLE_TOOL as any],
-    tool_choice: { type: 'tool', name: SUBMIT_ARTICLE_TOOL.name },
-    messages: [{ role: 'user', content: buildUserPrompt(transcriptionText) }],
+    tools: [submitTool as any],
+    tool_choice: { type: 'tool', name: submitTool.name },
+    messages: [{ role: 'user', content: buildUserPrompt(transcriptionText, language) }],
   });
 
   const toolUseBlock = message.content.find((b) => b.type === 'tool_use');

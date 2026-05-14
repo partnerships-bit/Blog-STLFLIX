@@ -14,7 +14,8 @@ export async function GET() {
         status,
         created_at,
         articles (
-          title
+          title,
+          language
         )
       `)
       .order('created_at', { ascending: false })
@@ -35,16 +36,21 @@ export async function GET() {
       .eq('status', 'sucesso')
       .gte('created_at', monday.toISOString());
 
-    const entries = (logs ?? []).map((log: Record<string, unknown>) => ({
-      id: log.id,
-      article_id: log.article_id ?? null,
-      source_url: log.source_url,
-      title: (log.articles as Record<string, unknown> | null)?.title ?? null,
-      word_count: log.word_count,
-      generation_time_seconds: log.generation_time_seconds,
-      status: log.status,
-      created_at: log.created_at,
-    }));
+    const entries = (logs ?? []).map((log: Record<string, unknown>) => {
+      const joined = log.articles as Record<string, unknown> | null;
+      const language = joined?.language;
+      return {
+        id: log.id,
+        article_id: log.article_id ?? null,
+        source_url: log.source_url,
+        title: joined?.title ?? null,
+        word_count: log.word_count,
+        generation_time_seconds: log.generation_time_seconds,
+        status: log.status,
+        created_at: log.created_at,
+        language: language === 'en' || language === 'pt-BR' ? language : null,
+      };
+    });
 
     return NextResponse.json({ entries, weekCount: weekCount ?? 0 });
   } catch (err) {

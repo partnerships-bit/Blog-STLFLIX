@@ -1,3 +1,5 @@
+export type Language = 'pt-BR' | 'en';
+
 export interface Transcription {
   id: string;
   source_url: string;
@@ -41,6 +43,9 @@ export interface Article {
   howto_steps: HowToStep[] | null;
   og_image_alt: string | null;
   reading_time_minutes: number | null;
+
+  // Migration 0003
+  language: Language;
 }
 
 export interface GenerationLog {
@@ -78,6 +83,8 @@ export interface ArticleResult {
   ogImageAlt: string;
   readingTimeMinutes: number;
   jsonLd: Record<string, unknown>;
+
+  language: Language;
 }
 
 export interface DashboardEntry {
@@ -89,6 +96,12 @@ export interface DashboardEntry {
   generation_time_seconds: number | null;
   status: 'sucesso' | 'erro';
   created_at: string;
+  language: Language | null;
+}
+
+export interface ArticleBundle {
+  'pt-BR': ArticleResult | null;
+  en: ArticleResult | null;
 }
 
 export type GenerateSSEEvent =
@@ -96,5 +109,5 @@ export type GenerateSSEEvent =
   | { stage: 'cache_hit'; progress: number }
   | { stage: 'transcribing'; progress: number }
   | { stage: 'generating'; progress: number }
-  | { stage: 'done'; progress: 100; article: ArticleResult }
+  | { stage: 'done'; progress: 100; articles: ArticleBundle }
   | { stage: 'error'; message: string };

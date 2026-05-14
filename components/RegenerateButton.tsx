@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import type { ArticleResult } from '@/lib/types';
+import type { ArticleBundle } from '@/lib/types';
 
 interface RegenerateButtonProps {
   transcriptionId: string;
   sourceUrl: string;
-  onRegenerated: (article: ArticleResult) => void;
+  onRegenerated: (bundle: ArticleBundle) => void;
 }
 
 export function RegenerateButton({
@@ -25,7 +25,10 @@ export function RegenerateButton({
       const res = await fetch('/api/regenerate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcription_id: transcriptionId, source_url: sourceUrl }),
+        body: JSON.stringify({
+          transcription_id: transcriptionId,
+          source_url: sourceUrl,
+        }),
       });
 
       const data = await res.json();
@@ -34,7 +37,7 @@ export function RegenerateButton({
         throw new Error(data.error ?? 'Falha ao regenerar');
       }
 
-      onRegenerated(data.article);
+      onRegenerated(data.articles);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao regenerar');
     } finally {
@@ -47,6 +50,7 @@ export function RegenerateButton({
       <button
         onClick={handleRegenerate}
         disabled={loading}
+        title="Regera os dois idiomas (PT-BR + EN)"
         className="
           flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
           border border-slate-600 hover:border-orange-500 text-slate-300
@@ -55,11 +59,11 @@ export function RegenerateButton({
       >
         {loading ? (
           <>
-            <span className="animate-spin">↻</span> Regenerando...
+            <span className="animate-spin">↻</span> Regenerando PT + EN...
           </>
         ) : (
           <>
-            <span>↻</span> Regenerar artigo
+            <span>↻</span> Regenerar (PT + EN)
           </>
         )}
       </button>

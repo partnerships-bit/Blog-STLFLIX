@@ -5,12 +5,12 @@ import { UrlForm } from '@/components/UrlForm';
 import { ProgressBar } from '@/components/ProgressBar';
 import { ArticlePreview } from '@/components/ArticlePreview';
 import { ErrorState } from '@/components/ErrorState';
-import type { ArticleResult, GenerateSSEEvent } from '@/lib/types';
+import type { ArticleBundle, GenerateSSEEvent } from '@/lib/types';
 
 type AppState =
   | { phase: 'idle' }
   | { phase: 'loading'; progress: number; stage: string }
-  | { phase: 'success'; article: ArticleResult }
+  | { phase: 'success'; articles: ArticleBundle }
   | { phase: 'error'; message: string; lastUrl: string };
 
 export default function HomePage() {
@@ -54,7 +54,7 @@ export default function HomePage() {
             }
 
             if (event.stage === 'done') {
-              setState({ phase: 'success', article: event.article });
+              setState({ phase: 'success', articles: event.articles });
               return;
             }
 
@@ -74,8 +74,8 @@ export default function HomePage() {
     }
   }, []);
 
-  const handleRegenerated = useCallback((article: ArticleResult) => {
-    setState({ phase: 'success', article });
+  const handleRegenerated = useCallback((articles: ArticleBundle) => {
+    setState({ phase: 'success', articles });
   }, []);
 
   const handleNewUrl = useCallback(() => {
@@ -96,7 +96,7 @@ export default function HomePage() {
           </h1>
           <p className="text-slate-400 max-w-xl mx-auto text-base">
             Cole a URL de um vídeo da STLFLIX no YouTube e receba um artigo
-            otimizado para SEO pronto para revisar e publicar no Hashnode.
+            otimizado para SEO em português e em inglês, pronto para revisar e publicar.
           </p>
         </div>
       )}
@@ -128,7 +128,7 @@ export default function HomePage() {
       {/* Success */}
       {state.phase === 'success' && (
         <ArticlePreview
-          article={state.article}
+          articles={state.articles}
           onRegenerated={handleRegenerated}
           onNewUrl={handleNewUrl}
         />

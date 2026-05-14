@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import type { ArticleResult, FAQItem, HowToStep } from '@/lib/types';
+import type { ArticleResult, FAQItem, HowToStep, Language } from '@/lib/types';
 
 export async function GET(
   _req: Request,
@@ -29,6 +29,7 @@ export async function GET(
         howto_steps,
         og_image_alt,
         reading_time_minutes,
+        language,
         transcriptions (
           source_url
         )
@@ -43,6 +44,9 @@ export async function GET(
 
     const transcription = data.transcriptions as { source_url?: string } | null;
     const sourceUrl = transcription?.source_url ?? '';
+
+    const rawLang = data.language;
+    const language: Language = rawLang === 'en' ? 'en' : 'pt-BR';
 
     const article: ArticleResult = {
       id: data.id,
@@ -66,6 +70,7 @@ export async function GET(
       readingTimeMinutes:
         data.reading_time_minutes ?? Math.max(1, Math.ceil((data.word_count ?? 0) / 200)),
       jsonLd: (data.json_ld as Record<string, unknown>) ?? {},
+      language,
     };
 
     return NextResponse.json(article);

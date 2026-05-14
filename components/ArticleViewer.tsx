@@ -4,14 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArticlePreview } from './ArticlePreview';
-import type { ArticleResult } from '@/lib/types';
+import type { ArticleBundle, Language } from '@/lib/types';
 
 interface ArticleViewerProps {
-  initialArticle: ArticleResult;
+  initialBundle: ArticleBundle;
+  initialLanguage: Language;
 }
 
-export function ArticleViewer({ initialArticle }: ArticleViewerProps) {
-  const [article, setArticle] = useState(initialArticle);
+export function ArticleViewer({ initialBundle, initialLanguage }: ArticleViewerProps) {
+  const [bundle, setBundle] = useState<ArticleBundle>(initialBundle);
   const router = useRouter();
 
   return (
@@ -26,8 +27,9 @@ export function ArticleViewer({ initialArticle }: ArticleViewerProps) {
       </div>
 
       <ArticlePreview
-        article={article}
-        onRegenerated={setArticle}
+        articles={bundle}
+        initialLanguage={initialLanguage}
+        onRegenerated={setBundle}
         onNewUrl={() => router.push('/')}
       />
     </div>

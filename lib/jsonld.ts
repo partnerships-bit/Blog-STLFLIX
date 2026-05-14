@@ -1,5 +1,5 @@
 import { extractVideoId } from './youtube';
-import type { FAQItem, HowToStep } from './types';
+import type { FAQItem, HowToStep, Language } from './types';
 
 const PUBLISHER = {
   '@type': 'Organization',
@@ -22,6 +22,7 @@ interface BuildJsonLdOptions {
   faq: FAQItem[];
   isTutorial: boolean;
   howtoSteps: HowToStep[] | null;
+  language: Language;
   generatedAt?: Date;
 }
 
@@ -30,6 +31,9 @@ export function buildJsonLd(opts: BuildJsonLdOptions): Record<string, unknown> {
   const pageUrl = opts.slug
     ? `https://blog.stlflix.com/${opts.slug}`
     : 'https://blog.stlflix.com';
+  // Video is always spoken in pt-BR; only the written article changes language.
+  const articleLang = opts.language;
+  const videoLang = 'pt-BR';
 
   const graph: Record<string, unknown>[] = [];
 
@@ -42,7 +46,7 @@ export function buildJsonLd(opts: BuildJsonLdOptions): Record<string, unknown> {
     datePublished,
     keywords: opts.keywords.join(', '),
     wordCount: opts.wordCount,
-    inLanguage: 'pt-BR',
+    inLanguage: articleLang,
     mainEntityOfPage: { '@type': 'WebPage', '@id': pageUrl },
   });
 
@@ -54,7 +58,7 @@ export function buildJsonLd(opts: BuildJsonLdOptions): Record<string, unknown> {
     contentUrl: opts.sourceUrl,
     embedUrl: opts.sourceUrl,
     uploadDate: datePublished,
-    inLanguage: 'pt-BR',
+    inLanguage: videoLang,
   };
   if (videoId) {
     videoObject.thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
@@ -80,7 +84,7 @@ export function buildJsonLd(opts: BuildJsonLdOptions): Record<string, unknown> {
       '@type': 'HowTo',
       name: opts.title,
       description: opts.metaDescription,
-      inLanguage: 'pt-BR',
+      inLanguage: articleLang,
       step: opts.howtoSteps.map((s, i) => ({
         '@type': 'HowToStep',
         position: i + 1,
