@@ -208,3 +208,157 @@ export function getSubmitArticleTool(language: Language) {
     },
   };
 }
+
+// =============================================================================
+// PLANO EDITORIAL DE IMAGENS — gera um plano (N imagens com prompts prontos)
+// a partir de um artigo já existente. Usa Claude com tool_use forçado.
+// =============================================================================
+
+export const IMAGE_PLAN_SYSTEM_PROMPT = `Você é um especialista em direção de arte editorial, SEO de imagens e conteúdo visual para artigos de blog.
+
+Sua tarefa é analisar o artigo recebido e definir apenas o plano de imagens ideal para ele.
+
+Objetivo:
+Definir quantas imagens o artigo deve ter e criar sugestões visuais úteis, estratégicas e coerentes com o conteúdo.
+
+REGRAS:
+1. Foque apenas em imagens. Não reescreva o artigo.
+2. As imagens devem ajudar o leitor a entender melhor o conteúdo.
+3. Evite imagens genéricas demais ou decorativas sem utilidade.
+4. Pense em imagens que aumentem clareza, escaneabilidade e valor visual.
+5. Se o artigo for tutorial ou passo a passo, sugira imagens para as etapas mais importantes.
+6. Se o artigo for explicativo, comparativo ou lista, distribua as imagens ao longo do texto de forma equilibrada.
+7. Sempre considere SEO de imagens.
+8. As sugestões devem estar alinhadas com o tema do artigo e com a palavra-chave principal.
+9. NÃO sugira imagens com texto embutido, títulos, interfaces falsas ou elementos visuais confusos, a menos que o contexto peça especificamente capturas de tela.
+10. Quando fizer sentido, sugira: imagem de capa/hero, resultado final, processo, comparação visual, detalhe técnico, captura de tela, exemplo prático.
+
+REGRA DE QUANTIDADE:
+- Até 900 palavras → 2 a 4 imagens
+- 1.000 a 1.500 palavras → 4 a 6 imagens
+- 1.500 a 2.500 palavras → 6 a 10 imagens
+- Tutorial passo a passo → pelo menos 1 imagem por etapa importante
+
+CAMPO image_prompt — instruções:
+- Prompt visual detalhado e claro, pronto para uso em gerador de imagem (gpt-image-2, DALL-E, Flux).
+- Descreva assunto principal, composição, estilo, iluminação, contexto.
+- Sempre peça imagem limpa, profissional, sem texto embutido (salvo screenshots).
+- Se o artigo for sobre impressão 3D, maker, ferramentas ou software, adapte ao contexto técnico real (filamento, nozzle, mesa aquecida, slicer, etc.).
+- Idioma do prompt: pode escrever em inglês (modelos de imagem entendem melhor), mas adapte alt_text, seo_filename e visual_description ao idioma do artigo.
+
+ENTREGA: SEMPRE chame a ferramenta submit_image_plan com todos os campos preenchidos. Nunca responda em texto livre.`;
+
+interface ImagePlanContext {
+  title: string;
+  bodyMd: string;
+  primaryKeyword: string;
+  keywords: string[];
+  language: 'pt-BR' | 'en';
+  wordCount: number;
+  isTutorial: boolean;
+}
+
+export function buildImagePlanUserPrompt(ctx: ImagePlanContext): string {
+  const isEn = ctx.language === 'en';
+  const targetAudience = isEn
+    ? '3D printing enthusiasts, makers and hobbyists looking for technical clarity'
+    : 'Entusiastas de impressão 3D, makers e hobbistas em busca de clareza técnica';
+  const articleType = ctx.isTutorial
+    ? (isEn ? 'tutorial / step-by-step' : 'tutorial / passo a passo')
+    : (isEn ? 'explicativo/guia' : 'explicativo/guia');
+
+  return `Analise o artigo abaixo e devolva o plano de imagens via submit_image_plan.
+
+Contexto:
+- Título: ${ctx.title}
+- Palavra-chave principal: ${ctx.primaryKeyword || '(não definida)'}
+- Palavras-chave secundárias: ${ctx.keywords.join(', ') || '(nenhuma)'}
+- Público-alvo: ${targetAudience}
+- Idioma: ${ctx.language}
+- Marca: STLFLIX
+- Word count estimado: ${ctx.wordCount}
+- Tipo de artigo: ${articleType}
+
+Conteúdo do artigo (Markdown):
+"""
+${ctx.bodyMd}
+"""`;
+}
+
+export const SUBMIT_IMAGE_PLAN_TOOL = {
+  name: 'submit_image_plan',
+  description:
+    'Submete o plano editorial de imagens do artigo. SEMPRE use esta ferramenta para entregar o resultado final — nunca responda em texto livre.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      recommended_image_count: {
+        type: 'integer',
+        minimum: 2,
+        maximum: 12,
+        description: 'Quantidade total de imagens recomendadas — siga a regra de quantidade por word count.',
+      },
+      strategy_notes: {
+        type: 'array',
+        items: { type: 'string' },
+        minItems: 1,
+        maxItems: 5,
+        description: 'Notas estratégicas curtas explicando a abordagem (1–5 bullets).',
+      },
+      images: {
+        type: 'array',
+        minItems: 2,
+        maxItems: 12,
+        items: {
+          type: 'object',
+          properties: {
+            image_number: { type: 'integer', minimum: 1, description: 'Posição na sequência (1, 2, 3...).' },
+            placement: { type: 'string', description: 'Onde a imagem entra. Ex.: "logo após a introdução", "antes da conclusão".' },
+            section_reference: { type: 'string', description: 'Subtítulo ou trecho do artigo a que a imagem pertence.' },
+            purpose: { type: 'string', description: 'Por que essa imagem existe. Ex.: "mostrar resultado final", "ilustrar etapa do processo".' },
+            image_type: {
+              type: 'string',
+              enum: [
+                'hero image',
+                'product photo',
+                'step-by-step',
+                'screenshot',
+                'comparison',
+                'diagram',
+                'detail shot',
+                'lifestyle image',
+              ],
+              description: 'Tipo da imagem.',
+            },
+            visual_description: { type: 'string', description: 'Descrição clara do que a imagem deve mostrar.' },
+            image_prompt: {
+              type: 'string',
+              description:
+                'Prompt detalhado pronto para gerador (gpt-image-2/DALL-E/Flux). Inclua assunto, composição, estilo, iluminação, contexto. Imagem limpa, sem texto embutido (salvo screenshot).',
+            },
+            alt_text: { type: 'string', maxLength: 125, description: 'Alt text natural, otimizado para SEO, no idioma do artigo.' },
+            seo_filename: {
+              type: 'string',
+              description: 'Filename em kebab-case, sem acentos, sem extensão. Ex.: "calibracao-mesa-impressora-3d-resultado".',
+            },
+            priority: { type: 'string', enum: ['high', 'medium', 'low'], description: 'Prioridade da imagem no plano.' },
+          },
+          required: [
+            'image_number',
+            'placement',
+            'section_reference',
+            'purpose',
+            'image_type',
+            'visual_description',
+            'image_prompt',
+            'alt_text',
+            'seo_filename',
+            'priority',
+          ],
+        },
+      },
+    },
+    required: ['recommended_image_count', 'strategy_notes', 'images'],
+  },
+};
+

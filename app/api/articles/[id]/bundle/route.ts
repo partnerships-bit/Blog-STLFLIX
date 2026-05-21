@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { extractFeaturedImage, extractImagePlan } from '@/lib/articles';
 import type { ArticleBundle, ArticleResult, FAQItem, HowToStep, Language } from '@/lib/types';
 
 const ARTICLE_COLUMNS = `
@@ -24,6 +25,7 @@ const ARTICLE_COLUMNS = `
   og_image_alt,
   reading_time_minutes,
   language,
+  article_images,
   transcriptions (
     source_url
   )
@@ -57,7 +59,9 @@ function rowToArticle(row: Record<string, unknown>): ArticleResult {
     readingTimeMinutes:
       (row.reading_time_minutes as number) ?? Math.max(1, Math.ceil(wordCount / 200)),
     jsonLd: (row.json_ld as Record<string, unknown>) ?? {},
+    featuredImageUrl: extractFeaturedImage(row.json_ld),
     language,
+    imagePlan: extractImagePlan(row.article_images),
   };
 }
 

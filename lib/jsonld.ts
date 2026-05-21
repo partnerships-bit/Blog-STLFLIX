@@ -24,6 +24,7 @@ interface BuildJsonLdOptions {
   howtoSteps: HowToStep[] | null;
   language: Language;
   generatedAt?: Date;
+  featuredImageUrl?: string | null;
 }
 
 export function buildJsonLd(opts: BuildJsonLdOptions): Record<string, unknown> {
@@ -37,7 +38,7 @@ export function buildJsonLd(opts: BuildJsonLdOptions): Record<string, unknown> {
 
   const graph: Record<string, unknown>[] = [];
 
-  graph.push({
+  const articleSchema: Record<string, any> = {
     '@type': 'Article',
     headline: opts.title,
     description: opts.metaDescription,
@@ -48,7 +49,13 @@ export function buildJsonLd(opts: BuildJsonLdOptions): Record<string, unknown> {
     wordCount: opts.wordCount,
     inLanguage: articleLang,
     mainEntityOfPage: { '@type': 'WebPage', '@id': pageUrl },
-  });
+  };
+
+  if (opts.featuredImageUrl) {
+    articleSchema.image = opts.featuredImageUrl;
+  }
+
+  graph.push(articleSchema);
 
   const videoId = extractVideoId(opts.sourceUrl);
   const videoObject: Record<string, unknown> = {

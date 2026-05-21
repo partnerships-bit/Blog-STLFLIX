@@ -20,6 +20,32 @@ export interface HowToStep {
   text: string;
 }
 
+export type ImagePriority = 'high' | 'medium' | 'low';
+
+export interface ArticleImagePlanItem {
+  image_number: number;
+  placement: string;
+  section_reference: string;
+  purpose: string;
+  image_type: string;
+  visual_description: string;
+  image_prompt: string;
+  alt_text: string;
+  seo_filename: string;
+  priority: ImagePriority;
+  // Preenchido depois que a Karol clica "Gerar essa imagem" no card
+  generated_url: string | null;
+  // Versões anteriores empurradas pelo backend toda vez que generated_url muda.
+  // Mais recente primeiro, cap em 5. Permite "voltar pra imagem antiga" depois de regerar.
+  history: string[];
+}
+
+export interface ArticleImagePlan {
+  recommended_image_count: number;
+  strategy_notes: string[];
+  images: ArticleImagePlanItem[];
+}
+
 export interface Article {
   id: string;
   transcription_id: string;
@@ -43,9 +69,14 @@ export interface Article {
   howto_steps: HowToStep[] | null;
   og_image_alt: string | null;
   reading_time_minutes: number | null;
+  featured_image_url: string | null;
 
   // Migration 0003
   language: Language;
+
+  // Migration 0004 — plano editorial de imagens + URLs geradas slot a slot.
+  // Conteúdo segue o shape de ArticleImagePlan; vazio até a Karol clicar "Planejar imagens".
+  article_images: ArticleImagePlan | Record<string, never>;
 }
 
 export interface GenerationLog {
@@ -83,8 +114,12 @@ export interface ArticleResult {
   ogImageAlt: string;
   readingTimeMinutes: number;
   jsonLd: Record<string, unknown>;
+  featuredImageUrl: string | null;
 
   language: Language;
+
+  // Plano editorial de imagens. null quando ainda não foi gerado.
+  imagePlan: ArticleImagePlan | null;
 }
 
 export interface DashboardEntry {

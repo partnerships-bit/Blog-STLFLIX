@@ -8,6 +8,7 @@ import { SeoScorePanel } from './SeoScorePanel';
 import { TitleVariantPicker } from './TitleVariantPicker';
 import { MetaVariantPicker } from './MetaVariantPicker';
 import { JsonLdCopyButton } from './JsonLdCopyButton';
+import { ImagePlanPanel } from './ImagePlanPanel';
 
 interface ArticleEditorProps {
   article: ArticleResult;
@@ -21,6 +22,7 @@ export function ArticleEditor({ article, hidden = false }: ArticleEditorProps) {
   const [keywords, setKeywords] = useState(article.keywords.join(', '));
   const [tldrText, setTldrText] = useState(article.tldr.join('\n'));
   const [faq, setFaq] = useState<FAQItem[]>(article.faq);
+  const [featuredImageUrl, setFeaturedImageUrl] = useState<string | null>(article.featuredImageUrl);
 
   useEffect(() => {
     setTitle(article.title);
@@ -29,7 +31,26 @@ export function ArticleEditor({ article, hidden = false }: ArticleEditorProps) {
     setKeywords(article.keywords.join(', '));
     setTldrText(article.tldr.join('\n'));
     setFaq(article.faq);
+    setFeaturedImageUrl(article.featuredImageUrl);
   }, [article]);
+
+  const handleSetFeaturedImage = async (url: string) => {
+    setFeaturedImageUrl(url);
+    try {
+      const res = await fetch(`/api/articles/${article.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ featuredImageUrl: url }),
+      });
+      if (!res.ok) {
+        console.error('Failed to update featured image');
+      }
+    } catch (err) {
+      console.error('Error updating featured image:', err);
+    }
+  };
 
   const keywordsArray = keywords
     .split(',')
@@ -272,22 +293,32 @@ export function ArticleEditor({ article, hidden = false }: ArticleEditorProps) {
                 keywords={keywordsArray}
                 tldr={tldr}
                 faq={faq}
+                featuredImageUrl={featuredImageUrl}
               />
               <JsonLdCopyButton jsonLd={article.jsonLd} />
             </div>
           </div>
         </div>
 
-        <SeoScorePanel
-          title={title}
-          meta={metaDescription}
-          bodyMd={bodyMd}
-          primaryKeyword={article.primaryKeyword}
-          tldr={tldr}
-          faq={faq}
-          wordCount={wordCount}
-          readingTimeMinutes={readingTimeMinutes}
-        />
+        <div className="flex flex-col gap-6">
+          <ImagePlanPanel
+            articleId={article.id}
+            language={article.language}
+            initialPlan={article.imagePlan}
+            featuredImageUrl={featuredImageUrl}
+            onSetFeaturedImage={handleSetFeaturedImage}
+          />
+          <SeoScorePanel
+            title={title}
+            meta={metaDescription}
+            bodyMd={bodyMd}
+            primaryKeyword={article.primaryKeyword}
+            tldr={tldr}
+            faq={faq}
+            wordCount={wordCount}
+            readingTimeMinutes={readingTimeMinutes}
+          />
+        </div>
       </div>
     </div>
   );

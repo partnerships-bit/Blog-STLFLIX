@@ -11,6 +11,7 @@ interface CopyButtonsProps {
   keywords: string[];
   tldr: string[];
   faq: FAQItem[];
+  featuredImageUrl?: string | null;
 }
 
 export function CopyButtons({
@@ -20,6 +21,7 @@ export function CopyButtons({
   keywords,
   tldr,
   faq,
+  featuredImageUrl,
 }: CopyButtonsProps) {
   const [copied, setCopied] = useState<'md' | 'html' | null>(null);
 
@@ -30,7 +32,13 @@ export function CopyButtons({
   }
 
   function buildMarkdown(): string {
-    const parts: string[] = [`# ${title}`, '', `> ${metaDescription}`];
+    const parts: string[] = [`# ${title}`, ''];
+
+    if (featuredImageUrl) {
+      parts.push(`![${title}](${featuredImageUrl})`, '');
+    }
+
+    parts.push(`> ${metaDescription}`);
 
     if (tldr.length > 0) {
       parts.push('', '## TL;DR', '');
@@ -56,8 +64,13 @@ export function CopyButtons({
   function buildHtml(): string {
     const out: string[] = [
       `<h1>${escapeHtml(title)}</h1>`,
-      `<p><em>${escapeHtml(metaDescription)}</em></p>`,
     ];
+
+    if (featuredImageUrl) {
+      out.push(`<img src="${escapeHtml(featuredImageUrl)}" alt="${escapeHtml(title)}" style="max-width:100%; height:auto;" />`, '');
+    }
+
+    out.push(`<p><em>${escapeHtml(metaDescription)}</em></p>`);
 
     if (tldr.length > 0) {
       out.push('<h2>TL;DR</h2>');

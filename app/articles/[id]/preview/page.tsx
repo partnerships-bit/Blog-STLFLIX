@@ -1,12 +1,15 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { ArticleResult } from '@/lib/types';
+import { injectPlanImages } from '@/lib/image-injection';
 
 async function getArticle(id: string): Promise<ArticleResult | null> {
   try {
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000';
+    const baseUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
 
     const res = await fetch(`${baseUrl}/api/articles/${id}`, {
       cache: 'no-store',
@@ -32,6 +35,8 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 export default async function ArticlePreviewPage({ params }: { params: { id: string } }) {
   const article = await getArticle(params.id);
   if (!article) notFound();
+
+  const enrichedHtml = injectPlanImages(article.bodyHtml, article.imagePlan);
 
   return (
     <article className="flex flex-col gap-8 max-w-3xl mx-auto">
@@ -76,8 +81,14 @@ export default async function ArticlePreviewPage({ params }: { params: { id: str
           prose-p:text-slate-200 prose-p:leading-relaxed
           prose-strong:text-white prose-a:text-orange-400 hover:prose-a:text-orange-300
           prose-li:text-slate-200 prose-code:text-orange-300
+          [&_.article-figure]:my-8 [&_.article-figure]:flex [&_.article-figure]:flex-col
+          [&_.article-figure_img]:rounded-xl [&_.article-figure_img]:w-full [&_.article-figure_img]:h-auto
+          [&_.article-figure_img]:shadow-lg [&_.article-figure_img]:border [&_.article-figure_img]:border-slate-800
+          [&_.article-figure_figcaption]:text-sm [&_.article-figure_figcaption]:text-slate-400
+          [&_.article-figure_figcaption]:italic [&_.article-figure_figcaption]:mt-2
+          [&_.article-figure_figcaption]:text-center
         "
-        dangerouslySetInnerHTML={{ __html: article.bodyHtml }}
+        dangerouslySetInnerHTML={{ __html: enrichedHtml }}
       />
 
       <footer className="pt-6 border-t border-slate-800 text-xs text-slate-500">
