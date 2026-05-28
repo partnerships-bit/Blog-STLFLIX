@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { DashboardEntry } from '@/lib/types';
 
 interface DashboardTableProps {
@@ -27,7 +29,31 @@ function truncateUrl(url: string) {
   }
 }
 
-export function DashboardTable({ entries, weekCount }: DashboardTableProps) {
+export function DashboardTable({ entries: initialEntries, weekCount }: DashboardTableProps) {
+  const router = useRouter();
+  const [entries, setEntries] = useState(initialEntries);
+  const [confirmEntry, setConfirmEntry] = useState<{ logId: string; articleId: string | null } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete(logId: string, articleId: string | null) {
+    setDeleting(true);
+    try {
+      if (articleId) {
+        const res = await fetch(`/api/articles/${articleId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Erro ao excluir');
+        setEntries((prev) => prev.filter((e) => e.article_id !== articleId));
+      } else {
+        const res = await fetch(`/api/logs/${logId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Erro ao excluir');
+        setEntries((prev) => prev.filter((e) => e.id !== logId));
+      }
+      router.refresh();
+    } finally {
+      setDeleting(false);
+      setConfirmEntry(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Week counter */}
@@ -134,36 +160,76 @@ export function DashboardTable({ entries, weekCount }: DashboardTableProps) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {canOpen ? (
-                        <div className="flex gap-2 justify-end">
-                          <Link
-                            href={`/articles/${entry.article_id}`}
-                            className="
-                              inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium
-                              bg-slate-700/60 text-slate-200 hover:bg-slate-700 transition-colors
-                            "
-                          >
-                            Editar
-                          </Link>
-                          <Link
-                            href={`/articles/${entry.article_id}/preview`}
-                            className="
-                              inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium
-                              bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 transition-colors
-                            "
-                          >
-                            Ver HTML
-                          </Link>
-                        </div>
-                      ) : (
-                        <span className="text-slate-600 text-xs">—</span>
-                      )}
+                      <div className="flex gap-2 justify-end">
+                        {canOpen && (
+                          <>
+                            <Link
+                              href={`/articles/${entry.article_id}`}
+                              className="
+                                inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium
+                                bg-slate-700/60 text-slate-200 hover:bg-slate-700 transition-colors
+                              "
+                            >
+                              Editar
+                            </Link>
+                            <Link
+                              href={`/articles/${entry.article_id}/preview`}
+                              className="
+                                inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium
+                                bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 transition-colors
+                              "
+                            >
+                              Ver HTML
+                            </Link>
+                          </>
+                        )}
+                        <button
+                          onClick={() => setConfirmEntry({ logId: entry.id, articleId: entry.article_id })}
+                          className="
+                            inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium
+                            bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors
+                          "
+                        >
+                          Excluir
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Confirmation modal */}
+      {confirmEntry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-2xl max-w-sm w-full mx-4">
+            <h2 className="text-white font-semibold text-base mb-2">Excluir registro</h2>
+            <p className="text-slate-400 text-sm mb-6">
+              Esta ação é irreversível.{' '}
+              {confirmEntry.articleId
+                ? 'O artigo e seu registro de geração serão excluídos permanentemente.'
+                : 'O registro de erro será excluído permanentemente.'}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmEntry(null)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-slate-700 text-slate-200 hover:bg-slate-600 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDelete(confirmEntry.logId, confirmEntry.articleId)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-50"
+              >
+                {deleting ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -87,6 +87,23 @@ export async function GET(
   }
 }
 
+export async function DELETE(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    await supabase.from('generation_logs').delete().eq('article_id', params.id);
+
+    const { error } = await supabase.from('articles').delete().eq('id', params.id);
+    if (error) throw new Error(error.message);
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro desconhecido';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
