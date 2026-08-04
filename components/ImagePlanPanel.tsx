@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import type { ArticleImagePlan, ArticleImagePlanItem, Language } from '@/lib/types';
 
 interface ImagePlanPanelProps {
@@ -28,10 +29,17 @@ export function ImagePlanPanel({
   const [plan, setPlan] = useState<ArticleImagePlan | null>(initialPlan);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
+  const [generatingAll, setGeneratingAll] = useState(false);
   const [generatingSlots, setGeneratingSlots] = useState<Set<number>>(new Set());
   const [restoringSlots, setRestoringSlots] = useState<Set<number>>(new Set());
+  const [uploadingSlots, setUploadingSlots] = useState<Set<number>>(new Set());
+  const [referenceSlots, setReferenceSlots] = useState<Set<number>>(new Set());
   const [slotErrors, setSlotErrors] = useState<Record<number, string>>({});
   const [expandedPrompts, setExpandedPrompts] = useState<Set<number>>(new Set());
+
+  // File picker compartilhado: rastreia qual slot + qual ação está pendente.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingPickRef = useRef<{ slot: number; kind: 'upload' | 'reference' } | null>(null);
 
   const labels = {
     title: isEn ? 'Image Plan' : 'Plano de Imagens',
@@ -51,6 +59,8 @@ export function ImagePlanPanel({
     prompt: 'Prompt',
     showPrompt: isEn ? 'Show prompt' : 'Ver prompt',
     hidePrompt: isEn ? 'Hide prompt' : 'Esconder prompt',
+    generateAll: isEn ? 'Generate All Images' : 'Gerar Todas as Imagens',
+    generatingAll: isEn ? 'Generating all…' : 'Gerando todas…',
     generate: isEn ? 'Generate' : 'Gerar',
     generating: isEn ? 'Generating…' : 'Gerando…',
     regenerate: isEn ? 'Regenerate' : 'Regerar',
@@ -62,6 +72,10 @@ export function ImagePlanPanel({
     previousVersions: isEn ? 'Previous versions' : 'Versões anteriores',
     restore: isEn ? 'Restore' : 'Restaurar',
     restoring: isEn ? 'Restoring…' : 'Restaurando…',
+    upload: isEn ? 'Upload' : 'Upload',
+    uploading: isEn ? 'Uploading…' : 'Subindo…',
+    reference: isEn ? 'With reference' : 'Com referência',
+    referenceGenerating: isEn ? 'Generating…' : 'Gerando…',
     empty: isEn
       ? 'No plan yet. Click "Plan Images" to let the AI design a visual plan for this article.'
       : 'Sem plano ainda. Clique em "Planejar Imagens" pra IA desenhar o plano visual.',
@@ -84,6 +98,17 @@ export function ImagePlanPanel({
     } finally {
       setPlanLoading(false);
     }
+  }
+
+  async function handleGenerateAll() {
+    if (!plan) return;
+    setGeneratingAll(true);
+    for (const img of plan.images) {
+      if (!img.generated_url) {
+        await handleGenerateSlot(img);
+      }
+    }
+    setGeneratingAll(false);
   }
 
   async function handleGenerateSlot(item: ArticleImagePlanItem) {
@@ -156,6 +181,105 @@ export function ImagePlanPanel({
     }
   }
 
+  // Salva uma nova URL no slot via o mesmo PATCH usado em gerar/restaurar.
+  async function persistSlotUrl(imageNumber: number, url: string): Promise<void> {
+    const slotRes = await fetch(`/api/articles/${articleId}/image-slot`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_number: imageNumber, generated_url: url }),
+    });
+    const slotData = await slotRes.json();
+    if (!slotRes.ok) throw new Error(slotData.error || 'Falha ao salvar slot');
+    setPlan(slotData.imagePlan);
+  }
+
+  async function handleUpload(item: ArticleImagePlanItem, file: File) {
+    setUploadingSlots((prev) => new Set(prev).add(item.image_number));
+    setSlotErrors((prev) => {
+      const next = { ...prev };
+      delete next[item.image_number];
+      return next;
+    });
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const upRes = await fetch('/api/upload-image', { method: 'POST', body: form });
+      const upData = await upRes.json();
+      if (!upRes.ok || !upData.url) throw new Error(upData.error || 'Falha ao subir imagem');
+      await persistSlotUrl(item.image_number, upData.url);
+    } catch (err) {
+      setSlotErrors((prev) => ({
+        ...prev,
+        [item.image_number]: err instanceof Error ? err.message : 'Erro',
+      }));
+    } finally {
+      setUploadingSlots((prev) => {
+        const next = new Set(prev);
+        next.delete(item.image_number);
+        return next;
+      });
+    }
+  }
+
+  async function handleGenerateWithReference(item: ArticleImagePlanItem, files: File[]) {
+    if (files.length === 0) return;
+    if (files.length > 4) {
+      setSlotErrors((prev) => ({
+        ...prev,
+        [item.image_number]: 'Máximo 4 imagens de referência por vez',
+      }));
+      return;
+    }
+    setReferenceSlots((prev) => new Set(prev).add(item.image_number));
+    setSlotErrors((prev) => {
+      const next = { ...prev };
+      delete next[item.image_number];
+      return next;
+    });
+    try {
+      const form = new FormData();
+      form.append('prompt', item.image_prompt);
+      for (const f of files) form.append('referenceImages', f);
+      const imgRes = await fetch('/api/generate-image', { method: 'POST', body: form });
+      const imgData = await imgRes.json();
+      if (!imgRes.ok || !imgData.url) throw new Error(imgData.error || 'Falha ao gerar com referência');
+      await persistSlotUrl(item.image_number, imgData.url);
+    } catch (err) {
+      setSlotErrors((prev) => ({
+        ...prev,
+        [item.image_number]: err instanceof Error ? err.message : 'Erro',
+      }));
+    } finally {
+      setReferenceSlots((prev) => {
+        const next = new Set(prev);
+        next.delete(item.image_number);
+        return next;
+      });
+    }
+  }
+
+  function triggerFilePicker(slot: number, kind: 'upload' | 'reference') {
+    pendingPickRef.current = { slot, kind };
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      // Upload aceita só 1; "com referência" aceita até 4 (cap no backend também).
+      fileInputRef.current.multiple = kind === 'reference';
+      fileInputRef.current.click();
+    }
+  }
+
+  async function onFilePicked(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    const pending = pendingPickRef.current;
+    pendingPickRef.current = null;
+    e.target.value = '';
+    if (files.length === 0 || !pending || !plan) return;
+    const item = plan.images.find((i) => i.image_number === pending.slot);
+    if (!item) return;
+    if (pending.kind === 'upload') await handleUpload(item, files[0]);
+    else await handleGenerateWithReference(item, files);
+  }
+
   function togglePrompt(n: number) {
     setExpandedPrompts((prev) => {
       const next = new Set(prev);
@@ -174,6 +298,13 @@ export function ImagePlanPanel({
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col gap-4">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+        onChange={onFilePicked}
+        className="hidden"
+      />
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-white uppercase tracking-wider flex items-center gap-2">
@@ -224,11 +355,42 @@ export function ImagePlanPanel({
             </details>
           )}
 
+          {(() => {
+            const pending = plan.images.filter((i) => !i.generated_url).length;
+            return pending > 0 ? (
+              <button
+                type="button"
+                onClick={handleGenerateAll}
+                disabled={generatingAll || generatingSlots.size > 0}
+                className="
+                  w-full py-2.5 rounded-lg text-sm font-semibold transition-colors
+                  bg-orange-500 hover:bg-orange-600 text-white
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  flex items-center justify-center gap-2
+                "
+              >
+                {generatingAll ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    {labels.generatingAll}
+                  </>
+                ) : (
+                  <>🎨 {labels.generateAll} ({pending})</>
+                )}
+              </button>
+            ) : null;
+          })()}
+
           <div className="flex flex-col gap-3">
             {plan.images.map((img) => {
               const isGenerating = generatingSlots.has(img.image_number);
               const isRestoring = restoringSlots.has(img.image_number);
-              const isBusy = isGenerating || isRestoring;
+              const isUploading = uploadingSlots.has(img.image_number);
+              const isReferenceGen = referenceSlots.has(img.image_number);
+              const isBusy = isGenerating || isRestoring || isUploading || isReferenceGen;
               const slotErr = slotErrors[img.image_number];
               const promptOpen = expandedPrompts.has(img.image_number);
               const isCover = !!img.generated_url && img.generated_url === featuredImageUrl;
@@ -291,7 +453,36 @@ export function ImagePlanPanel({
                     </div>
                   )}
 
-                  {img.generated_url ? (
+                  {(() => {
+                    const extraButtons = (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => triggerFilePicker(img.image_number, 'upload')}
+                          disabled={isBusy}
+                          className="
+                            py-1.5 rounded text-[11px] font-medium border border-slate-700
+                            bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                          "
+                        >
+                          {isUploading ? labels.uploading : `📤 ${labels.upload}`}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => triggerFilePicker(img.image_number, 'reference')}
+                          disabled={isBusy}
+                          className="
+                            py-1.5 rounded text-[11px] font-medium border border-slate-700
+                            bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                          "
+                        >
+                          {isReferenceGen ? labels.referenceGenerating : `🎯 ${labels.reference}`}
+                        </button>
+                      </div>
+                    );
+                    return img.generated_url ? (
                     <div className="flex flex-col gap-2">
                       <div className="relative rounded overflow-hidden border border-slate-700 bg-slate-950 aspect-square">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -352,32 +543,37 @@ export function ImagePlanPanel({
                           {copied === `md-${img.image_number}` ? labels.copied : labels.copyMd}
                         </button>
                       </div>
+                      {extraButtons}
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateSlot(img)}
-                      disabled={isBusy}
-                      className="
-                        py-2 rounded text-xs font-semibold transition-colors
-                        bg-orange-500 hover:bg-orange-600 text-white
-                        disabled:opacity-50 disabled:cursor-not-allowed
-                        flex items-center justify-center gap-2
-                      "
-                    >
-                      {isGenerating ? (
-                        <>
-                          <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          {labels.generating}
-                        </>
-                      ) : (
-                        <>🎨 {labels.generate}</>
-                      )}
-                    </button>
-                  )}
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateSlot(img)}
+                        disabled={isBusy}
+                        className="
+                          py-2 rounded text-xs font-semibold transition-colors
+                          bg-orange-500 hover:bg-orange-600 text-white
+                          disabled:opacity-50 disabled:cursor-not-allowed
+                          flex items-center justify-center gap-2
+                        "
+                      >
+                        {isGenerating ? (
+                          <>
+                            <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            {labels.generating}
+                          </>
+                        ) : (
+                          <>🎨 {labels.generate}</>
+                        )}
+                      </button>
+                      {extraButtons}
+                    </div>
+                  );
+                  })()}
 
                   {img.history && img.history.length > 0 && (
                     <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-800">

@@ -239,12 +239,35 @@ REGRA DE QUANTIDADE:
 - 1.500 a 2.500 palavras → 6 a 10 imagens
 - Tutorial passo a passo → pelo menos 1 imagem por etapa importante
 
-CAMPO image_prompt — instruções:
-- Prompt visual detalhado e claro, pronto para uso em gerador de imagem (gpt-image-2, DALL-E, Flux).
-- Descreva assunto principal, composição, estilo, iluminação, contexto.
-- Sempre peça imagem limpa, profissional, sem texto embutido (salvo screenshots).
-- Se o artigo for sobre impressão 3D, maker, ferramentas ou software, adapte ao contexto técnico real (filamento, nozzle, mesa aquecida, slicer, etc.).
-- Idioma do prompt: pode escrever em inglês (modelos de imagem entendem melhor), mas adapte alt_text, seo_filename e visual_description ao idioma do artigo.
+CAMPO image_prompt — FORMATO OBRIGATÓRIO (template oficial gpt-image-2, OpenAI Cookbook Apr/2026):
+gpt-image-2 responde a estrutura skimmável. SEMPRE produza o image_prompt como 5 tags XML, nessa ORDEM EXATA, uma por linha, em INGLÊS, 100% sem texto fora das tags:
+
+<scene>...</scene>
+<subject>...</subject>
+<details>...</details>
+<use_case>...</use_case>
+<constraints>...</constraints>
+
+PRINCÍPIO RAIZ (anti-slop): **visual facts over vague praise.** PROIBIDAS as palavras: stunning, incredible, epic, masterpiece, gorgeous, breathtaking, insane detail, ultra-premium, professional-grade, high quality, beautiful. Em vez disso use fatos visuais concretos: "overcast daylight", "brushed aluminum", "chipped paint", "50mm feel", "soft bounce light", "slightly worn canvas", "visible layer lines".
+
+Conteúdo por tag:
+- <scene>: onde a imagem existe — ambiente, hora, contexto físico, atmosfera ambiente. Ex.: "a clean modern maker studio with white acoustic panels and a wooden workbench, late morning, soft overcast daylight from a north-facing window".
+- <subject>: 1 frase focada no foco principal, com specificity. Diga o nome real das coisas. Ex.: "a Bambu Lab X1 Carbon 3D printer mid-calibration, printing a first-layer test grid on a black PEI sheet" (não "a 3D printer").
+- <details>: tudo que precisa ficar visível — composição/framing, lente/distância, materiais e texturas, paleta concreta (2–4 cores), iluminação direcional, mood expresso como fato visual. Ex.: "three-quarter angle at workbench level, subject occupies right two-thirds, 50mm feel with shallow depth of field, hardened steel nozzle catching the light, visible layer lines on print, matte black + brushed aluminum + warm wood tones + single translucent green PETG spool as accent, low-contrast soft shadows".
+- <use_case>: o artefato pretendido — define o "mode" e o nível de polish. Escolha um: "editorial blog hero photo" / "product mockup" / "studio detail close-up" / "step-by-step tutorial photo" / "infographic illustration" / "technical exploded diagram" / "comparison split photo" / "documentary lifestyle photo" / "UI screenshot".
+- <constraints>: o que evitar e o que preservar. SEMPRE inclua: "no embedded text, no watermarks, no logos" (exceção: screenshots, onde você especifica o texto literal entre aspas e o estilo da tipografia). Adicione exclusões específicas ao tema (no human hands, no other printers in background, no extra props).
+
+TEXTO LITERAL NA IMAGEM (quando aplicável — screenshot, poster, packaging, infographic):
+Coloque o texto entre ASPAS ou em CAIXA ALTA dentro de <details>, e especifique tipografia. Ex.: details inclui "header reads 'BED LEVELING — STEP 1' in bold condensed sans-serif, white on matte black, centered upper third, generous letter spacing". Para palavras difíceis (marcas, termos técnicos), soletre letra-a-letra.
+
+EXEMPLO COMPLETO (capa de artigo sobre calibração de mesa em impressora 3D):
+<scene>a clean modern maker studio with white acoustic panels and a wooden workbench, late morning, soft overcast daylight from a north-facing window</scene>
+<subject>a Bambu Lab X1 Carbon 3D printer mid-calibration, printing a first-layer auto-leveling test grid on a black PEI sheet</subject>
+<details>three-quarter angle at workbench level, subject occupies right two-thirds, 50mm feel with shallow depth of field focused on the print bed, hardened steel nozzle catching the light, fine visible layer lines on the test pattern, matte black + brushed aluminum + warm wood tones + single translucent green PETG spool as accent, low-contrast soft shadows, dust-free surface</details>
+<use_case>editorial blog hero photo</use_case>
+<constraints>no embedded text, no watermarks, no logos, no human hands, no other printers in background, preserve the visible layer pattern on the test print</constraints>
+
+Adapte ao contexto técnico real do nicho (filamento, nozzle, mesa aquecida, slicer, resin tank, FEP film, etc.). alt_text, seo_filename e visual_description SEMPRE no idioma do artigo (PT-BR ou EN), só o image_prompt fica em inglês.
 
 ENTREGA: SEMPRE chame a ferramenta submit_image_plan com todos os campos preenchidos. Nunca responda em texto livre.`;
 
@@ -334,7 +357,7 @@ export const SUBMIT_IMAGE_PLAN_TOOL = {
             image_prompt: {
               type: 'string',
               description:
-                'Prompt detalhado pronto para gerador (gpt-image-2/DALL-E/Flux). Inclua assunto, composição, estilo, iluminação, contexto. Imagem limpa, sem texto embutido (salvo screenshot).',
+                'Prompt para gpt-image-2 (OpenAI Cookbook Apr/2026), EM INGLÊS, em 5 tags XML na ordem fixa: <scene>, <subject>, <details>, <use_case>, <constraints>. Uma tag por linha, nada fora das tags. Visual facts only — PROIBIDO usar stunning/epic/masterpiece/incredible/gorgeous/insane detail. <constraints> sempre inclui "no embedded text, no watermarks, no logos" salvo screenshots (onde você cita o texto literal entre aspas + tipografia em <details>).',
             },
             alt_text: { type: 'string', maxLength: 125, description: 'Alt text natural, otimizado para SEO, no idioma do artigo.' },
             seo_filename: {
